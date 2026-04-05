@@ -44,7 +44,7 @@ app = Flask(__name__)
 # ─── Límite global de tamaño de petición ──────────────────────────────────────
 # Flask rechaza automáticamente con 413 cualquier petición que supere este límite.
 # Esto previene ataques de agotamiento de memoria (DoS por upload masivo).
-app.config['MAX_CONTENT_LENGTH'] = 5 * 1024 * 1024  # 5 MB
+app.config['MAX_CONTENT_LENGTH'] =10 * 1024 * 1024  # 5 MB
 
 
 # ─── Configuración (viene del archivo .env, nunca del código) ─────────────────

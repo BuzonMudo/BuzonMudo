@@ -388,8 +388,24 @@ document.getElementById('upload-form').addEventListener('submit', async (e) => {
         if (encryptedFileBlob) formData.append('encrypted_file', encryptedFileBlob, 'file.enc');
 
         const response = await fetch('/upload', { method: 'POST', body: formData });
-        const data = await response.json();
+        
+        // ── Paso 4.5: Validar la respuesta del servidor antes de leer el JSON ──
+        
+        // Verificar si Nginx bloqueó la subida por peso (413 Payload Too Large)
+        if (response.status === 413) {
+            throw new Error("El archivo es demasiado pesado. El servidor lo rechazó.");
+        }
 
+        let data;
+        try {
+            // Intentamos parsear el JSON
+            data = await response.json();
+        } catch (e) {
+            // Si Nginx o Flask devuelven HTML u otro error no anticipado
+            throw new Error("Error de comunicación con el servidor (Respuesta no válida).");
+        }
+
+        // Manejar errores controlados que vengan desde Flask
         if (!response.ok) {
             throw new Error(data.error || `Error ${response.status}`);
         }
