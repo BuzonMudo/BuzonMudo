@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}{{ site_name }}{% endblock %}</title>
+
+    <!-- Bootstrap 5 CSS -->
+    <link rel="stylesheet"
+          href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css"
+          integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH"
+          crossorigin="anonymous">
+
+    <!-- Nuestros estilos sobreescriben la paleta de Bootstrap -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+
+    {% block extra_head %}{% endblock %}
+</head>
+<body>
+
+<!-- ── Navbar ── -->
+<nav class="navbar navbar-expand-sm">
+    <div class="container">
+        <a class="navbar-brand" href="/">{{ site_name }}</a>
+        <div class="navbar-nav ms-auto">
+            <a class="nav-link" href="/">Subir</a>
+            <a class="nav-link" href="/decrypt-tool">Herramienta</a>
+            {% if cryptos %}
+            <a class="nav-link" href="#" data-bs-toggle="modal" data-bs-target="#donationsModal">
+                Donaciones
+            </a>
+            {% endif %}
+            <a class="nav-link" href="#" data-bs-toggle="modal" data-bs-target="#tcModal">
+                T&amp;C
+            </a>
+            {% if github_link %}
+            <a class="nav-link" href="{{ github_link }}" target="_blank" rel="noopener">
+                Código fuente
+            </a>
+            {% endif %}
+        </div>
+    </div>
+</nav>
+
+<!-- ── Contenido principal ── -->
+<main>
+    {% block content %}{% endblock %}
+</main>
+
+<!-- ── Footer ── -->
+<footer>
+    <div class="container">
+        {{ site_name }} — Cifrado en el cliente, servidor ciego.
+        ·
+        <a href="#" data-bs-toggle="modal" data-bs-target="#tcModal">Términos y Condiciones</a>
+        {% if github_link %}
+        · <a href="{{ github_link }}" target="_blank" rel="noopener">Código fuente</a>
+        {% endif %}
+    </div>
+</footer>
+
+
+<!-- ════════════════════════════════════════════════════════════════════════════
+     MODAL: TÉRMINOS Y CONDICIONES
+     ════════════════════════════════════════════════════════════════════════════ -->
+<div class="modal fade" id="tcModal" tabindex="-1" aria-labelledby="tcModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable">
+        <div class="modal-content modal-dark">
+
+            <div class="modal-header modal-dark-header">
+                <h5 class="modal-title" id="tcModalLabel">Términos y Condiciones</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+
+            <div class="modal-body" style="font-size: 0.88rem; line-height: 1.7; color: var(--text-secondary);">
+
+                <p style="color: var(--text-muted); font-size: 0.78rem; margin-bottom: 1.25rem;">
+                    Al utilizar este servicio, aceptas las condiciones descritas a continuación.
+                </p>
+
+                <!-- 1. Zero-Knowledge -->
+                <div class="tc-section">
+                    <h6 class="tc-heading">1. Principio de Conocimiento Cero</h6>
+                    <p>
+                        Este servidor opera bajo el principio de <em>Zero-Knowledge</em>. Todos los datos
+                        son cifrados en el navegador del emisor mediante AES-256-GCM <strong>antes</strong>
+                        de ser transmitidos. El servidor almacena únicamente bloques cifrados temporales
+                        y <strong>no tiene acceso</strong> al contenido original ni a las claves de cifrado.
+                        El operador del servicio es técnicamente incapaz de leer el contenido de los drops,
+                        incluso ante una orden judicial, ya que las claves nunca pasan por el servidor.
+                    </p>
+                </div>
+
+                <!-- 2. Pérdida de datos -->
+                <div class="tc-section">
+                    <h6 class="tc-heading">2. Pérdida irreversible de datos</h6>
+                    <p>
+                        Los drops se destruyen permanentemente tras su primera lectura o al expirar el plazo
+                        configurado (por defecto 72 horas), lo que ocurra primero.
+                        Si el usuario pierde la clave de descifrado, el drop expira antes de ser leído,
+                        o la conexión falla durante la transferencia, los datos son <strong>irrecuperables</strong>.
+                        El operador no asume ninguna responsabilidad por pérdida de datos bajo ninguna
+                        circunstancia. El usuario es el único responsable de la custodia de su clave.
+                    </p>
+                </div>
+
+                <!-- 3. Uso ilícito -->
+                <div class="tc-section" style="border-bottom: none;">
+                    <h6 class="tc-heading">3. Prohibición de uso ilícito</h6>
+                    <p>
+                        Este servicio es una herramienta de privacidad legítima, <strong>no un refugio legal</strong>.
+                        Queda terminantemente prohibido su uso para transmitir, almacenar o distribuir
+                        material ilegal, incluyendo pero no limitado a: contenido que infrinja derechos
+                        de autor, material de abuso infantil, datos robados, credenciales comprometidas,
+                        o cualquier contenido cuya posesión o distribución sea ilegal en la jurisdicción
+                        del usuario o del servidor.
+                    </p>
+                    <p>
+                        El uso de este servicio implica la aceptación plena e incondicional de estas
+                        condiciones. El incumplimiento puede derivar en consecuencias legales.
+                    </p>
+                </div>
+
+            </div>
+
+            <div class="modal-footer modal-dark-footer">
+                <button type="button" class="btn-accent" data-bs-dismiss="modal">
+                    Entendido
+                </button>
+            </div>
+
+        </div>
+    </div>
+</div>
+
+
+<!-- ════════════════════════════════════════════════════════════════════════════
+     MODAL: DONACIONES
+     Solo se renderiza si hay al menos una criptomoneda configurada en .env
+     ════════════════════════════════════════════════════════════════════════════ -->
+{% if cryptos %}
+<div class="modal fade" id="donationsModal" tabindex="-1" aria-labelledby="donationsModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable">
+        <div class="modal-content modal-dark">
+
+            <div class="modal-header modal-dark-header">
+                <h5 class="modal-title" id="donationsModalLabel">Apoyar el proyecto</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+
+            <div class="modal-body">
+
+                <p style="font-size: 0.88rem; color: var(--text-secondary); margin-bottom: 1rem;">
+                    Este proyecto es software libre. Si te ha sido útil, considera apoyar
+                    su desarrollo con una donación. Gracias por defender la privacidad.
+                </p>
+
+                <!-- ── Advertencia crítica ── -->
+                <div class="donation-warning">
+                    <strong>ADVERTENCIA:</strong> Envía únicamente la criptomoneda indicada
+                    a su respectiva red. Si envías una moneda distinta a la red correspondiente,
+                    los fondos se perderán de forma <strong>irreversible</strong>.
+                </div>
+
+                <!-- ── Sección por criptomoneda ── -->
+                <!-- El servidor lee las direcciones del .env y las pasa aquí.
+                     Los QR se generan en el navegador con qrcode.js — el servidor
+                     no genera ni almacena imágenes, solo las direcciones de texto. -->
+                {% for crypto in cryptos %}
+                <div class="crypto-card {% if not loop.last %}mb-4{% endif %}">
+                    <div class="crypto-name">{{ crypto.name }} ({{ crypto.ticker }})</div>
+
+                    <!-- Contenedor donde qrcode.js dibujará el canvas -->
+                    <div class="qr-wrapper">
+                        <div id="qr-{{ crypto.ticker }}"></div>
+                    </div>
+
+                    <!-- Dirección en texto (seleccionable) -->
+                    <div class="crypto-address" id="addr-{{ crypto.ticker }}">{{ crypto.address }}</div>
+
+                    <!-- Botón copiar -->
+                    <button
+                        class="btn-outline"
+                        style="font-size: 0.78rem; padding: 0.35rem 0.9rem; margin-top: 0.5rem;"
+                        onclick="copyAddress('{{ crypto.ticker }}', this)">
+                        Copiar dirección
+                    </button>
+                </div>
+                {% if not loop.last %}<hr class="divider">{% endif %}
+                {% endfor %}
+
+            </div>
+
+            <div class="modal-footer modal-dark-footer">
+                <button type="button" class="btn-outline" data-bs-dismiss="modal">Cerrar</button>
+            </div>
+
+        </div>
+    </div>
+</div>
+{% endif %}
+
+
+<!-- ════════════════════════════════════════════════════════════════════════════
+     SCRIPTS
+     ════════════════════════════════════════════════════════════════════════════ -->
+
+<!-- Bootstrap 5 JS (necesario para que los modales funcionen) -->
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"
+        integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz"
+        crossorigin="anonymous"></script>
+
+{% if cryptos %}
+<!-- qrcode.js — genera los QR en el navegador a partir de las direcciones de texto.
+     El servidor nunca genera imágenes; esto es solo código del cliente. -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"
+        integrity="sha512-CNgIRecGo7nphbeZ04Sc13ka07paqdeTu0WR1IM4kNcpmBAUSHSQX0FslNhTDadL4O5SAGapGt4FodqL8My0mA=="
+        crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+
+<script>
+/*
+ * Generación de códigos QR para el modal de donaciones.
+ *
+ * Los QR se generan una sola vez (la primera vez que se abre el modal)
+ * a partir de las direcciones de criptomonedas que Flask pasó al template.
+ * La librería qrcode.js dibuja un <canvas> dentro de cada #qr-TICKER.
+ */
+'use strict';
+
+// Datos de cryptos serializados por Flask como JSON (solo texto, sin datos sensibles)
+const CRYPTO_DATA = {{ cryptos | tojson }};
+
+let qrGenerated = false;
+
+document.getElementById('donationsModal').addEventListener('show.bs.modal', function () {
+    if (qrGenerated) return;  // Evitar generar duplicados si el modal se abre varias veces
+    qrGenerated = true;
+
+    CRYPTO_DATA.forEach(function (c) {
+        const container = document.getElementById('qr-' + c.ticker);
+        if (!container || !c.address) return;
+
+        // qrcode.js: dibuja el QR como <canvas> dentro del contenedor
+        new QRCode(container, {
+            text:           c.address,
+            width:          160,
+            height:         160,
+            colorDark:      '#000000',
+            colorLight:     '#ffffff',
+            correctLevel:   QRCode.CorrectLevel.M,
+        });
+    });
+});
+
+// Copiar dirección al portapapeles
+async function copyAddress(ticker, btn) {
+    const address = document.getElementById('addr-' + ticker).textContent.trim();
+    try {
+        await navigator.clipboard.writeText(address);
+        const orig = btn.textContent;
+        btn.textContent = '¡Copiado!';
+        setTimeout(() => { btn.textContent = orig; }, 2000);
+    } catch {
+        // Fallback: selección manual
+        const el = document.getElementById('addr-' + ticker);
+        const range = document.createRange();
+        range.selectNodeContents(el);
+        window.getSelection().removeAllRanges();
+        window.getSelection().addRange(range);
+    }
+}
+</script>
+{% endif %}
+
+{% block extra_scripts %}{% endblock %}
+
+</body>
+</html>

@@ -1,0 +1,242 @@
+{% extends "base.html" %}
+{% block title %}Herramienta de descifrado — {{ site_name }}{% endblock %}
+
+{% block content %}
+<div class="main-container">
+
+    <h1 style="font-size: 1.4rem; margin-bottom: 0.4rem;">
+        <span class="text-accent font-mono">></span> Herramienta offline
+    </h1>
+    <p style="color: var(--text-secondary); margin-bottom: 1.5rem;">
+        Descifra un archivo <code>.enc</code> que ya tengas en tu disco.
+        Todo ocurre en tu navegador — ningún dato sale al servidor.
+    </p>
+
+    <div class="alert-info mb-4">
+        Esta herramienta es independiente del sistema Buzon Mudo.
+        Puedes usarla para descifrar cualquier archivo cifrado con AES-256-GCM
+        en el formato <code>[IV(12 bytes) | ciphertext]</code>.
+    </div>
+
+    <!-- ── Formulario ── -->
+    <div class="card-dark">
+        <h2 style="font-size: 0.95rem; color: var(--text-secondary); margin-bottom: 1.25rem;">
+            DESCIFRAR ARCHIVO LOCAL
+        </h2>
+
+        <!-- Archivo .enc -->
+        <div class="mb-3">
+            <label class="form-label" for="enc-file-input">
+                Archivo cifrado (.enc)
+            </label>
+            <input
+                class="form-control"
+                type="file"
+                id="enc-file-input"
+                accept=".enc,application/octet-stream">
+        </div>
+
+        <!-- Clave -->
+        <div class="mb-3">
+            <label class="form-label" for="tool-key-input">
+                Clave AES-256 (base64, 44 caracteres)
+            </label>
+            <input
+                class="form-control font-mono"
+                type="text"
+                id="tool-key-input"
+                placeholder="Pega aquí la clave..."
+                autocomplete="off"
+                spellcheck="false">
+        </div>
+
+        <!-- Aceptación de T&C obligatoria -->
+        <div class="tc-check-wrapper">
+            <div class="form-check d-flex align-items-start gap-2">
+                <input class="form-check-input" type="checkbox" id="tc-accept-tool">
+                <label class="form-check-label" for="tc-accept-tool">
+                    He leído y acepto los
+                    <a href="#" data-bs-toggle="modal" data-bs-target="#tcModal">
+                        Términos y Condiciones
+                    </a>
+                </label>
+            </div>
+        </div>
+
+        <div id="tool-status" class="status-text mb-3"></div>
+
+        <button class="btn-accent" id="btn-tool-decrypt">
+            Descifrar
+        </button>
+    </div>
+
+    <!-- ── Resultado ── -->
+    <div class="card-dark hidden" id="tool-result">
+        <h2 style="font-size: 0.95rem; color: var(--text-secondary); margin-bottom: 1rem;">
+            RESULTADO
+        </h2>
+
+        <!-- Si el contenido parece texto (UTF-8 válido), lo mostramos -->
+        <div id="tool-text-wrapper" class="hidden mb-3">
+            <label class="form-label">Contenido (texto)</label>
+            <textarea
+                class="form-control font-mono"
+                id="tool-text-output"
+                rows="8"
+                readonly></textarea>
+        </div>
+
+        <!-- Descarga del archivo descifrado -->
+        <div>
+            <label class="form-label">Descargar archivo descifrado</label>
+            <br>
+            <a id="tool-file-link" class="btn-accent"
+               style="display: inline-block; text-decoration: none;">
+                Descargar
+            </a>
+        </div>
+    </div>
+
+</div>
+
+<script>
+/*
+ * ══════════════════════════════════════════════════════════════════════════════
+ * Buzon Mudo — Herramienta offline de descifrado
+ * ══════════════════════════════════════════════════════════════════════════════
+ *
+ * Esta herramienta descifra un archivo .enc localmente, sin contacto
+ * con ningún servidor. El único código que se ejecuta es este mismo JavaScript.
+ *
+ * Proceso:
+ *  1. Leer el archivo .enc del disco.
+ *  2. Importar la clave base64 proporcionada por el usuario.
+ *  3. Extraer el IV (primeros 12 bytes) y el ciphertext (resto).
+ *  4. Descifrar con AES-256-GCM.
+ *  5. Intentar mostrar como texto UTF-8; si falla, solo ofrecer descarga binaria.
+ *
+ * ══════════════════════════════════════════════════════════════════════════════
+ */
+
+'use strict';
+
+function base64ToBuf(b64) {
+    return Uint8Array.from(atob(b64), c => c.charCodeAt(0));
+}
+
+function setToolStatus(msg, type = '') {
+    const el = document.getElementById('tool-status');
+    el.textContent = msg;
+    el.className = 'status-text mb-3' + (type ? ' ' + type : '');
+}
+
+function readFileAsBuffer(file) {
+    return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload  = e => resolve(e.target.result);
+        reader.onerror = () => reject(new Error('No se pudo leer el archivo.'));
+        reader.readAsArrayBuffer(file);
+    });
+}
+
+document.getElementById('btn-tool-decrypt').addEventListener('click', async () => {
+    const fileEl = document.getElementById('enc-file-input');
+    const keyEl  = document.getElementById('tool-key-input');
+
+    const file   = fileEl.files[0] || null;
+    const keyB64 = keyEl.value.trim();
+
+    if (!document.getElementById('tc-accept-tool').checked) {
+        setToolStatus('Debes aceptar los Términos y Condiciones para continuar.', 'error');
+        return;
+    }
+    if (!file) {
+        setToolStatus('Selecciona un archivo .enc.', 'error');
+        return;
+    }
+    if (!keyB64) {
+        setToolStatus('Introduce la clave AES-256.', 'error');
+        return;
+    }
+
+    const btn = document.getElementById('btn-tool-decrypt');
+    btn.disabled = true;
+    btn.textContent = 'Descifrando...';
+    setToolStatus('');
+
+    try {
+        // ── Leer archivo ──────────────────────────────────────────────────────
+        const fileBuf = await readFileAsBuffer(file);
+        const encBytes = new Uint8Array(fileBuf);
+
+        if (encBytes.length < 13) {
+            throw new Error('El archivo es demasiado pequeño para ser válido.');
+        }
+
+        // ── Importar clave ────────────────────────────────────────────────────
+        let rawKeyBytes;
+        try {
+            rawKeyBytes = base64ToBuf(keyB64);
+        } catch {
+            throw new Error('La clave no es base64 válido.');
+        }
+        if (rawKeyBytes.length !== 32) {
+            throw new Error(`La clave tiene ${rawKeyBytes.length} bytes, se esperan 32 (256 bits).`);
+        }
+
+        const cryptoKey = await crypto.subtle.importKey(
+            'raw',
+            rawKeyBytes,
+            { name: 'AES-GCM', length: 256 },
+            false,
+            ['decrypt']
+        );
+
+        // ── Extraer IV y ciphertext ───────────────────────────────────────────
+        const iv         = encBytes.slice(0, 12);
+        const ciphertext = encBytes.slice(12);
+
+        // ── Descifrar ─────────────────────────────────────────────────────────
+        let plainBuf;
+        try {
+            plainBuf = await crypto.subtle.decrypt(
+                { name: 'AES-GCM', iv },
+                cryptoKey,
+                ciphertext
+            );
+        } catch {
+            throw new Error(
+                'Descifrado fallido. Verifica que la clave sea correcta y el archivo no esté corrupto.'
+            );
+        }
+
+        // ── Intentar mostrar como texto ───────────────────────────────────────
+        try {
+            const text = new TextDecoder('utf-8', { fatal: true }).decode(plainBuf);
+            document.getElementById('tool-text-output').value = text;
+            document.getElementById('tool-text-wrapper').classList.remove('hidden');
+        } catch {
+            // No es texto UTF-8 válido — solo ofrecemos descarga binaria
+            document.getElementById('tool-text-wrapper').classList.add('hidden');
+        }
+
+        // ── Siempre ofrecemos descarga del binario descifrado ─────────────────
+        const blob     = new Blob([plainBuf], { type: 'application/octet-stream' });
+        const url      = URL.createObjectURL(blob);
+        const link     = document.getElementById('tool-file-link');
+        const baseName = file.name.replace(/\.enc$/i, '') || 'descifrado';
+        link.href      = url;
+        link.download  = baseName;
+
+        document.getElementById('tool-result').classList.remove('hidden');
+        setToolStatus('Descifrado correcto.', 'success');
+
+    } catch (err) {
+        setToolStatus(err.message, 'error');
+    } finally {
+        btn.disabled = false;
+        btn.textContent = 'Descifrar';
+    }
+});
+</script>
+{% endblock %}

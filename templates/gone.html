@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+{% block title %}No disponible — {{ site_name }}{% endblock %}
+
+{% block content %}
+<div class="main-container" style="text-align: center; padding-top: 5rem;">
+
+    <div style="font-family: var(--font-mono); font-size: 3rem; color: var(--text-muted); margin-bottom: 1rem;">
+        ✗
+    </div>
+
+    <h1 style="font-size: 1.3rem; margin-bottom: 0.5rem;">Drop no disponible</h1>
+
+    <p style="color: var(--text-secondary); max-width: 420px; margin: 0 auto 2rem;">
+        {{ message | default('Este drop no existe, ya fue reclamado por el receptor o ha expirado.') }}
+    </p>
+
+    <div class="alert-info" style="max-width: 420px; margin: 0 auto 2rem; text-align: left;">
+        Los drops se destruyen automáticamente tras la primera lectura o después de 72 horas.
+        Este comportamiento es intencional y garantiza que los datos no persistan en el servidor.
+    </div>
+
+    <a href="/" class="btn-accent" style="text-decoration: none;">
+        Crear nuevo drop
+    </a>
+
+</div>
+{% endblock %}

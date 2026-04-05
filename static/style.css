@@ -1,0 +1,457 @@
+/*
+ * Buzon Mudo — Hoja de Estilos
+ * ============================
+ * Modifica las variables en :root para cambiar toda la paleta de colores.
+ * No toques Bootstrap directamente; sobreescribimos aquí.
+ */
+
+:root {
+    /* ── Paleta principal ── */
+    --bg-body:      #0a0a0a;   /* Fondo global */
+    --bg-card:      #111111;   /* Fondo de tarjetas/paneles */
+    --bg-input:     #0d0d0d;   /* Fondo de inputs */
+    --bg-code:      #0f0f0f;   /* Fondo de bloques de código/clave */
+
+    /* ── Texto ── */
+    --text-primary: #e0e0e0;   /* Texto principal */
+    --text-secondary:#888888;  /* Texto secundario / labels */
+    --text-muted:   #444444;   /* Texto muy apagado */
+
+    /* ── Acento principal (verde terminal) ── */
+    --accent:       #00e676;   /* Color principal de acento */
+    --accent-dim:   #00b85c;   /* Acento hover / active */
+
+    /* ── Estados ── */
+    --danger:       #ff5252;   /* Error / advertencia */
+    --warning:      #ffab40;   /* Atención */
+    --success:      #00e676;   /* Éxito */
+
+    /* ── Bordes ── */
+    --border:       #1e1e1e;   /* Borde estándar */
+    --border-accent:#00e676;   /* Borde de énfasis */
+
+    /* ── Tipografía ── */
+    --font-mono: 'Courier New', Courier, monospace;
+    --font-sans: system-ui, -apple-system, 'Segoe UI', sans-serif;
+}
+
+/* ── Reset y base ─────────────────────────────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; }
+
+body {
+    background-color: var(--bg-body);
+    color: var(--text-primary);
+    font-family: var(--font-sans);
+    font-size: 0.95rem;
+    line-height: 1.6;
+    min-height: 100vh;
+}
+
+/* ── Tipografía ───────────────────────────────────────────────────────────── */
+h1, h2, h3, h4, h5, h6 {
+    color: var(--text-primary);
+    font-weight: 600;
+    letter-spacing: -0.02em;
+}
+
+a {
+    color: var(--accent);
+    text-decoration: none;
+}
+a:hover { color: var(--accent-dim); text-decoration: underline; }
+
+code, pre, .mono {
+    font-family: var(--font-mono);
+    font-size: 0.88rem;
+}
+
+/* ── Navbar ───────────────────────────────────────────────────────────────── */
+.navbar {
+    background-color: var(--bg-card) !important;
+    border-bottom: 1px solid var(--border);
+    padding: 0.75rem 0;
+}
+
+.navbar-brand {
+    color: var(--accent) !important;
+    font-family: var(--font-mono);
+    font-size: 1.1rem;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+}
+.navbar-brand:hover { color: var(--accent-dim) !important; }
+
+.nav-link {
+    color: var(--text-secondary) !important;
+    font-size: 0.85rem;
+}
+.nav-link:hover { color: var(--text-primary) !important; }
+
+/* ── Layout principal ─────────────────────────────────────────────────────── */
+.main-container {
+    max-width: 760px;
+    margin: 0 auto;
+    padding: 2.5rem 1.5rem 4rem;
+}
+
+/* ── Tarjetas ─────────────────────────────────────────────────────────────── */
+.card-dark {
+    background-color: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 1.75rem;
+    margin-bottom: 1.5rem;
+}
+
+.card-dark + .card-dark { margin-top: 0; }
+
+/* ── Formularios ──────────────────────────────────────────────────────────── */
+.form-control, .form-select, textarea {
+    background-color: var(--bg-input) !important;
+    border: 1px solid var(--border) !important;
+    color: var(--text-primary) !important;
+    font-family: var(--font-sans);
+    border-radius: 4px;
+    transition: border-color 0.15s ease;
+}
+
+.form-control:focus,
+.form-select:focus,
+textarea:focus {
+    border-color: var(--accent) !important;
+    box-shadow: 0 0 0 2px rgba(0, 230, 118, 0.1) !important;
+    outline: none;
+}
+
+.form-control::placeholder,
+textarea::placeholder { color: var(--text-muted) !important; }
+
+.form-label {
+    color: var(--text-secondary);
+    font-size: 0.82rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    margin-bottom: 0.4rem;
+}
+
+/* ── Botones ──────────────────────────────────────────────────────────────── */
+.btn-accent {
+    background-color: var(--accent);
+    border: none;
+    color: #000;
+    font-weight: 700;
+    font-size: 0.88rem;
+    padding: 0.55rem 1.4rem;
+    border-radius: 4px;
+    cursor: pointer;
+    letter-spacing: 0.04em;
+    transition: background-color 0.15s ease, transform 0.1s ease;
+}
+.btn-accent:hover  { background-color: var(--accent-dim); }
+.btn-accent:active { transform: scale(0.98); }
+.btn-accent:disabled { opacity: 0.4; cursor: not-allowed; }
+
+.btn-outline {
+    background-color: transparent;
+    border: 1px solid var(--border);
+    color: var(--text-secondary);
+    font-size: 0.88rem;
+    padding: 0.55rem 1.4rem;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: border-color 0.15s ease, color 0.15s ease;
+}
+.btn-outline:hover {
+    border-color: var(--text-secondary);
+    color: var(--text-primary);
+}
+
+.btn-danger {
+    background-color: transparent;
+    border: 1px solid var(--danger);
+    color: var(--danger);
+    font-size: 0.88rem;
+    padding: 0.55rem 1.4rem;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: background-color 0.15s ease;
+}
+.btn-danger:hover { background-color: rgba(255, 82, 82, 0.1); }
+
+/* ── Bloque de clave / código ─────────────────────────────────────────────── */
+.key-block {
+    background-color: var(--bg-code);
+    border: 1px solid var(--accent);
+    border-radius: 4px;
+    padding: 0.9rem 1rem;
+    font-family: var(--font-mono);
+    font-size: 0.82rem;
+    color: var(--accent);
+    word-break: break-all;
+    user-select: all;  /* Click → selecciona todo */
+    cursor: pointer;
+    position: relative;
+}
+
+.key-block:hover::after {
+    content: 'click para seleccionar';
+    position: absolute;
+    top: 50%;
+    right: 0.75rem;
+    transform: translateY(-50%);
+    font-size: 0.7rem;
+    color: var(--text-muted);
+    pointer-events: none;
+}
+
+/* ── Advertencias / alertas ───────────────────────────────────────────────── */
+.alert-dark {
+    background-color: #120000;
+    border: 1px solid var(--danger);
+    border-radius: 4px;
+    padding: 0.9rem 1.1rem;
+    color: var(--danger);
+    font-size: 0.88rem;
+}
+
+.alert-info {
+    background-color: #001a0a;
+    border: 1px solid var(--accent);
+    border-radius: 4px;
+    padding: 0.9rem 1.1rem;
+    color: var(--text-secondary);
+    font-size: 0.88rem;
+}
+
+/* ── Temporizador de cuenta regresiva ─────────────────────────────────────── */
+#timer-display {
+    font-family: var(--font-mono);
+    font-size: 1.8rem;
+    color: var(--warning);
+    letter-spacing: 0.1em;
+}
+
+#timer-display.danger { color: var(--danger); }
+
+/* ── Sección de resultado (post-upload) ───────────────────────────────────── */
+.result-section { display: none; }
+.result-section.visible { display: block; }
+
+/* ── Separador ────────────────────────────────────────────────────────────── */
+.divider {
+    border: none;
+    border-top: 1px solid var(--border);
+    margin: 1.5rem 0;
+}
+
+/* ── Texto de estado / feedback ──────────────────────────────────────────── */
+.status-text {
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+    margin-top: 0.5rem;
+    min-height: 1.2rem;
+}
+.status-text.error { color: var(--danger); }
+.status-text.success { color: var(--success); }
+
+/* ── Textarea de resultado descifrado ────────────────────────────────────── */
+#decrypted-text-output {
+    min-height: 120px;
+    resize: vertical;
+}
+
+/* ── Spinner simple en CSS ───────────────────────────────────────────────── */
+.spinner {
+    display: inline-block;
+    width: 14px;
+    height: 14px;
+    border: 2px solid var(--text-muted);
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    animation: spin 0.7s linear infinite;
+    vertical-align: middle;
+    margin-right: 0.4rem;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* ── Sección de información (página principal) ──────────────────────────── */
+.info-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+}
+@media (max-width: 560px) { .info-grid { grid-template-columns: 1fr; } }
+
+.info-item {
+    background-color: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 1rem;
+}
+
+.info-item .label {
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--text-muted);
+    margin-bottom: 0.3rem;
+}
+
+.info-item .value {
+    color: var(--text-primary);
+    font-size: 0.9rem;
+}
+
+/* ── Footer ───────────────────────────────────────────────────────────────── */
+footer {
+    border-top: 1px solid var(--border);
+    padding: 1.5rem 0;
+    text-align: center;
+    color: var(--text-muted);
+    font-size: 0.78rem;
+}
+
+footer a { color: var(--text-muted); }
+footer a:hover { color: var(--text-secondary); }
+
+/* ── Modales (dark theme) ─────────────────────────────────────────────────── */
+.modal-dark {
+    background-color: var(--bg-card);
+    border: 1px solid var(--border);
+    color: var(--text-primary);
+}
+
+.modal-dark-header {
+    background-color: var(--bg-card);
+    border-bottom: 1px solid var(--border);
+    padding: 1rem 1.25rem;
+}
+
+.modal-dark-header .modal-title {
+    color: var(--text-primary);
+    font-size: 1rem;
+    font-weight: 600;
+}
+
+.modal-dark-footer {
+    background-color: var(--bg-card);
+    border-top: 1px solid var(--border);
+    padding: 0.75rem 1.25rem;
+}
+
+/* Backdrop más oscuro */
+.modal-backdrop { background-color: #000; }
+.modal-backdrop.show { opacity: 0.75; }
+
+/* ── Términos y Condiciones — secciones ──────────────────────────────────── */
+.tc-section {
+    border-bottom: 1px solid var(--border);
+    padding-bottom: 1rem;
+    margin-bottom: 1rem;
+}
+
+.tc-heading {
+    color: var(--text-primary);
+    font-size: 0.88rem;
+    font-weight: 600;
+    margin-bottom: 0.5rem;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+}
+
+/* ── Donaciones ───────────────────────────────────────────────────────────── */
+.donation-warning {
+    background-color: #1a0000;
+    border: 1px solid var(--danger);
+    border-radius: 4px;
+    padding: 0.75rem 1rem;
+    color: var(--danger);
+    font-size: 0.85rem;
+    margin-bottom: 1.5rem;
+}
+
+.crypto-card {
+    text-align: center;
+}
+
+.crypto-name {
+    color: var(--text-primary);
+    font-weight: 600;
+    font-size: 0.95rem;
+    margin-bottom: 0.75rem;
+}
+
+.qr-wrapper {
+    display: flex;
+    justify-content: center;
+    margin-bottom: 0.75rem;
+    /* qrcode.js genera un canvas blanco — lo enmarcamos */
+}
+
+.qr-wrapper canvas,
+.qr-wrapper img {
+    border: 4px solid #fff;
+    border-radius: 4px;
+    display: block;
+}
+
+.crypto-address {
+    font-family: var(--font-mono);
+    font-size: 0.72rem;
+    color: var(--accent);
+    word-break: break-all;
+    background-color: var(--bg-code);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 0.5rem 0.75rem;
+    text-align: left;
+    user-select: all;
+    cursor: pointer;
+}
+
+/* ── Checkbox de T&C ─────────────────────────────────────────────────────── */
+.tc-check-wrapper {
+    background-color: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 0.75rem 1rem;
+    margin-bottom: 1rem;
+}
+
+.tc-check-wrapper .form-check-input {
+    background-color: var(--bg-input);
+    border-color: var(--text-muted);
+    cursor: pointer;
+    width: 1rem;
+    height: 1rem;
+    margin-top: 0.15rem;
+    flex-shrink: 0;
+}
+
+.tc-check-wrapper .form-check-input:checked {
+    background-color: var(--accent);
+    border-color: var(--accent);
+}
+
+.tc-check-wrapper .form-check-input:focus {
+    box-shadow: 0 0 0 2px rgba(0, 230, 118, 0.2);
+    border-color: var(--accent);
+}
+
+.tc-check-wrapper .form-check-label {
+    color: var(--text-secondary);
+    font-size: 0.84rem;
+    cursor: pointer;
+}
+
+.tc-check-wrapper .form-check-label a {
+    color: var(--accent);
+}
+
+/* ── Utilidades ───────────────────────────────────────────────────────────── */
+.text-accent   { color: var(--accent); }
+.text-danger   { color: var(--danger); }
+.text-muted-custom { color: var(--text-muted); }
+.font-mono     { font-family: var(--font-mono); }
+.hidden        { display: none !important; }

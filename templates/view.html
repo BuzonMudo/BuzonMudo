@@ -1,0 +1,425 @@
+{% extends "base.html" %}
+{% block title %}Drop — {{ site_name }}{% endblock %}
+
+{% block content %}
+<div class="main-container">
+
+    <h1 style="font-size: 1.4rem; margin-bottom: 0.4rem;">
+        <span class="text-accent font-mono">></span> Drop recibido
+    </h1>
+    <p style="color: var(--text-secondary); margin-bottom: 1.5rem;">
+        Contiene:
+        {% if has_text %}<span class="text-accent">texto</span>{% endif %}
+        {% if has_text and has_file %} y {% endif %}
+        {% if has_file %}<span class="text-accent">archivo</span>{% endif %}.
+        Expiraba: <span class="font-mono" style="color: var(--text-muted); font-size: 0.82rem;">{{ expires_at }}</span>
+    </p>
+
+    <!-- ── Advertencia de quema ── -->
+    <div class="alert-dark mb-4" id="burn-warning">
+        Al descifrar o descargar, este drop se destruye permanentemente del servidor.
+        No recargues la página después.
+    </div>
+
+    <!-- ── Estado de carga (visible mientras se fetch el raw) ── -->
+    <div class="card-dark" id="loading-section">
+        <span class="spinner"></span>
+        Obteniendo datos cifrados del servidor...
+    </div>
+
+    <!-- ── Error de carga ── -->
+    <div class="card-dark hidden" id="load-error-section">
+        <div class="text-danger" style="margin-bottom: 0.5rem; font-weight: 600;">
+            ✗ No se pudieron obtener los datos
+        </div>
+        <div id="load-error-msg" style="color: var(--text-secondary); font-size: 0.88rem;"></div>
+    </div>
+
+    <!-- ── Panel principal (visible una vez recibidos los datos) ── -->
+    <div class="hidden" id="main-panel">
+
+        <!-- Notificación de drop quemado -->
+        <div class="alert-info mb-3" id="burned-notice" style="display:none;">
+            Drop eliminado del servidor. Los datos viven solo en esta pestaña.
+        </div>
+
+        <!-- Aceptación de T&C — obligatoria antes de cualquier acción -->
+        <div class="tc-check-wrapper mb-3">
+            <div class="form-check d-flex align-items-start gap-2">
+                <input class="form-check-input" type="checkbox" id="tc-accept-view">
+                <label class="form-check-label" for="tc-accept-view">
+                    He leído y acepto los
+                    <a href="#" data-bs-toggle="modal" data-bs-target="#tcModal">
+                        Términos y Condiciones
+                    </a>
+                </label>
+            </div>
+        </div>
+
+        <!-- Descarga en crudo (sin descifrar) -->
+        {% if has_file %}
+        <div class="card-dark mb-0" id="raw-download-card">
+            <h2 style="font-size: 0.95rem; color: var(--text-secondary); margin-bottom: 0.75rem;">
+                DESCARGAR SIN DESCIFRAR
+            </h2>
+            <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 0.9rem;">
+                Descarga el archivo cifrado tal como está en el servidor.
+                Puedes descifrarlo después con la herramienta offline.
+            </p>
+            <button class="btn-outline" id="btn-raw-download">
+                Descargar .enc (cifrado)
+            </button>
+        </div>
+        <hr class="divider">
+        {% endif %}
+
+        <!-- Descifrado en el navegador -->
+        <div class="card-dark mb-0">
+            <h2 style="font-size: 0.95rem; color: var(--text-secondary); margin-bottom: 0.75rem;">
+                DESCIFRAR AQUÍ
+            </h2>
+
+            <div class="mb-3">
+                <label class="form-label" for="key-input">
+                    Clave AES-256 (te la dio el emisor)
+                </label>
+                <input
+                    class="form-control font-mono"
+                    type="text"
+                    id="key-input"
+                    placeholder="Pega aquí la clave base64..."
+                    autocomplete="off"
+                    spellcheck="false">
+            </div>
+
+            <div id="decrypt-status" class="status-text mb-3"></div>
+
+            <button class="btn-accent" id="btn-decrypt">
+                Descifrar
+            </button>
+        </div>
+
+        <!-- Resultados del descifrado (ocultos hasta tener éxito) -->
+        <div class="card-dark hidden" id="results-section">
+            <h2 style="font-size: 0.95rem; color: var(--text-secondary); margin-bottom: 1rem;">
+                CONTENIDO DESCIFRADO
+            </h2>
+
+            <!-- Texto descifrado -->
+            <div id="text-result-wrapper" class="hidden mb-3">
+                <label class="form-label">Mensaje</label>
+                <textarea
+                    class="form-control font-mono"
+                    id="decrypted-text-output"
+                    readonly></textarea>
+                <button
+                    class="btn-outline mt-2"
+                    onclick="copyDecryptedText()">
+                    Copiar texto
+                </button>
+            </div>
+
+            <!-- Archivo descifrado -->
+            <div id="file-result-wrapper" class="hidden">
+                <label class="form-label">Archivo</label>
+                <br>
+                <a id="decrypted-file-link" class="btn-accent"
+                   style="display: inline-block; text-decoration: none;">
+                    Descargar archivo descifrado
+                </a>
+                <div style="font-size: 0.78rem; color: var(--text-muted); margin-top: 0.4rem;">
+                    El archivo se descifra en tu navegador. Nada sale al servidor.
+                </div>
+            </div>
+        </div>
+
+    </div><!-- /main-panel -->
+
+</div>
+
+<script>
+/*
+ * ══════════════════════════════════════════════════════════════════════════════
+ * Buzon Mudo — JavaScript del receptor
+ * ══════════════════════════════════════════════════════════════════════════════
+ *
+ * FLUJO DE SEGURIDAD:
+ *
+ *  1. Al cargar la página, este script llama a GET /raw/<id>.
+ *     El servidor devuelve los datos cifrados y DESTRUYE el drop.
+ *     A partir de ahora, los datos solo existen en la memoria de esta pestaña.
+ *
+ *  2. El receptor introduce la clave AES-256 que recibió del emisor.
+ *
+ *  3. Este script descifra el texto y el archivo localmente (Web Crypto API).
+ *     La clave no sale al servidor en ningún momento.
+ *
+ *  4. El texto descifrado se muestra en pantalla.
+ *     El archivo descifrado se ofrece como descarga local.
+ *
+ *  5. Al cerrar o recargar la pestaña, todo desaparece.
+ *
+ * ══════════════════════════════════════════════════════════════════════════════
+ */
+
+'use strict';
+
+// Datos cifrados en memoria (se llenan al cargar la página)
+let encryptedTextB64   = null;   // base64 string o null
+let encryptedFileBytes = null;   // Uint8Array o null
+
+// ── Utilidades ───────────────────────────────────────────────────────────────
+
+function base64ToBuf(b64) {
+    return Uint8Array.from(atob(b64), c => c.charCodeAt(0));
+}
+
+function bufToBase64(buf) {
+    return btoa(Array.from(new Uint8Array(buf), b => String.fromCharCode(b)).join(''));
+}
+
+function setDecryptStatus(msg, type = '') {
+    const el = document.getElementById('decrypt-status');
+    el.textContent = msg;
+    el.className = 'status-text mb-3' + (type ? ' ' + type : '');
+}
+
+// ── Descifrado AES-256-GCM ───────────────────────────────────────────────────
+
+/**
+ * Importa una clave AES-256 desde su representación base64.
+ */
+async function importKey(b64Key) {
+    const rawBytes = base64ToBuf(b64Key);
+    if (rawBytes.length !== 32) {
+        throw new Error('La clave debe tener exactamente 32 bytes (256 bits).');
+    }
+    return crypto.subtle.importKey(
+        'raw',
+        rawBytes,
+        { name: 'AES-GCM', length: 256 },
+        false,          // no necesitamos exportarla
+        ['decrypt']
+    );
+}
+
+/**
+ * Descifra un buffer [ IV(12) | ciphertext ] con la clave dada.
+ */
+async function decryptData(key, encBytes) {
+    if (encBytes.length < 13) throw new Error('Datos demasiado cortos para ser válidos.');
+    const iv         = encBytes.slice(0, 12);    // primeros 12 bytes = IV
+    const ciphertext = encBytes.slice(12);       // resto = ciphertext + auth tag
+    return crypto.subtle.decrypt(
+        { name: 'AES-GCM', iv },
+        key,
+        ciphertext
+    );
+}
+
+// ── Paso 1: Obtener datos cifrados del servidor ───────────────────────────────
+
+async function fetchAndBurn() {
+    const dropId = {{ drop_id | tojson }};
+
+    try {
+        const resp = await fetch(`/raw/${dropId}`);
+
+        if (resp.status === 410) {
+            showLoadError('Este drop ya fue reclamado o ha expirado. No es posible recuperarlo.');
+            return;
+        }
+        if (!resp.ok) {
+            showLoadError(`Error del servidor: ${resp.status}`);
+            return;
+        }
+
+        const data = await resp.json();
+
+        // Guardar en memoria del navegador
+        encryptedTextB64 = data.encrypted_text || null;
+        if (data.encrypted_file) {
+            encryptedFileBytes = base64ToBuf(data.encrypted_file);
+        }
+
+        // El drop ya no existe en el servidor
+        showMainPanel();
+
+    } catch (err) {
+        showLoadError(`Error de red: ${err.message}`);
+    }
+}
+
+// ── Mostrar / ocultar secciones ───────────────────────────────────────────────
+
+function showLoadError(msg) {
+    document.getElementById('loading-section').classList.add('hidden');
+    document.getElementById('load-error-section').classList.remove('hidden');
+    document.getElementById('load-error-msg').textContent = msg;
+}
+
+function showMainPanel() {
+    document.getElementById('loading-section').classList.add('hidden');
+    document.getElementById('main-panel').classList.remove('hidden');
+    document.getElementById('burned-notice').style.display = 'block';
+}
+
+// ── Paso 2: Descifrar en el navegador ────────────────────────────────────────
+
+document.getElementById('btn-decrypt').addEventListener('click', async () => {
+    const keyInput = document.getElementById('key-input').value.trim();
+
+    if (!document.getElementById('tc-accept-view').checked) {
+        setDecryptStatus('Debes aceptar los Términos y Condiciones para continuar.', 'error');
+        return;
+    }
+
+    if (!keyInput) {
+        setDecryptStatus('Introduce la clave AES-256.', 'error');
+        return;
+    }
+
+    const btn = document.getElementById('btn-decrypt');
+    btn.disabled = true;
+    btn.textContent = 'Descifrando...';
+    setDecryptStatus('');
+
+    try {
+        // ── Importar la clave ─────────────────────────────────────────────────
+        let cryptoKey;
+        try {
+            cryptoKey = await importKey(keyInput);
+        } catch {
+            throw new Error('Clave inválida. Debe ser base64 de 32 bytes (la que te dio el emisor).');
+        }
+
+        let anySuccess = false;
+
+        // ── Paso A: Descifrar el envelope JSON ────────────────────────────────
+        //
+        // El "encrypted_text" no contiene solo el mensaje del usuario; contiene
+        // un objeto JSON cifrado con tres campos:
+        //
+        //   { mensaje, nombre_archivo, tipo_mime }
+        //
+        // Al descifrar este bloque primero, obtenemos el nombre y MIME del archivo
+        // sin que el servidor haya conocido esa información en ningún momento.
+        // Este es el mecanismo que permite reconstruir el archivo con su tipo
+        // correcto en Android/iOS.
+
+        let envelope = { mensaje: '', nombre_archivo: null, tipo_mime: null };
+
+        if (encryptedTextB64) {
+            try {
+                const encBytes   = base64ToBuf(encryptedTextB64);
+                const plainBuf   = await decryptData(cryptoKey, encBytes);
+                const jsonString = new TextDecoder().decode(plainBuf);
+
+                // Intentar parsear como envelope JSON (formato nuevo)
+                // Si falla (compatibilidad con drops anteriores al formato nuevo),
+                // tratamos el contenido como texto plano puro.
+                try {
+                    const parsed = JSON.parse(jsonString);
+                    // Validamos que tenga la forma esperada del envelope
+                    if (typeof parsed === 'object' && parsed !== null && 'mensaje' in parsed) {
+                        envelope = parsed;
+                    } else {
+                        // JSON válido pero sin forma de envelope → tratar como texto
+                        envelope.mensaje = jsonString;
+                    }
+                } catch {
+                    // No es JSON → es un drop antiguo con texto plano
+                    envelope.mensaje = jsonString;
+                }
+
+                anySuccess = true;
+            } catch {
+                throw new Error('Error al descifrar. ¿La clave es correcta?');
+            }
+        }
+
+        // Mostrar el mensaje si hay contenido
+        if (envelope.mensaje) {
+            document.getElementById('decrypted-text-output').value = envelope.mensaje;
+            document.getElementById('text-result-wrapper').classList.remove('hidden');
+        }
+
+        // ── Paso B: Descifrar el archivo binario ──────────────────────────────
+        //
+        // Ahora que tenemos nombre_archivo y tipo_mime del envelope,
+        // podemos reconstruir el Blob con el tipo correcto.
+        // Esto es lo que permite a Android/iOS reconocer y abrir el archivo.
+        if (encryptedFileBytes) {
+            try {
+                const plainBuf = await decryptData(cryptoKey, encryptedFileBytes);
+
+                // Usar el MIME type real del archivo original (estaba oculto en el envelope)
+                const mimeType = envelope.tipo_mime || 'application/octet-stream';
+                const fileName = envelope.nombre_archivo || 'archivo_descifrado';
+
+                const blob = new Blob([plainBuf], { type: mimeType });
+                const url  = URL.createObjectURL(blob);
+
+                const link     = document.getElementById('decrypted-file-link');
+                link.href      = url;
+                link.download  = fileName;   // nombre original → el móvil sabe qué app usar
+                document.getElementById('file-result-wrapper').classList.remove('hidden');
+                anySuccess = true;
+            } catch {
+                throw new Error('Error al descifrar el archivo. ¿La clave es correcta?');
+            }
+        }
+
+        if (anySuccess) {
+            document.getElementById('results-section').classList.remove('hidden');
+            setDecryptStatus('Descifrado correcto.', 'success');
+        }
+
+    } catch (err) {
+        setDecryptStatus(err.message, 'error');
+    } finally {
+        btn.disabled = false;
+        btn.textContent = 'Descifrar';
+    }
+});
+
+// ── Descarga en crudo (sin descifrar) ────────────────────────────────────────
+
+const rawBtn = document.getElementById('btn-raw-download');
+if (rawBtn) {
+    rawBtn.addEventListener('click', () => {
+        if (!document.getElementById('tc-accept-view').checked) {
+            alert('Debes aceptar los Términos y Condiciones para continuar.');
+            return;
+        }
+        if (!encryptedFileBytes) {
+            alert('No hay archivo cifrado disponible.');
+            return;
+        }
+        // El archivo ya está en memoria — lo ofrecemos tal cual (sin descifrar)
+        const blob = new Blob([encryptedFileBytes], { type: 'application/octet-stream' });
+        const url  = URL.createObjectURL(blob);
+        const a    = document.createElement('a');
+        a.href     = url;
+        a.download = 'drop_cifrado.enc';
+        a.click();
+        URL.revokeObjectURL(url);
+    });
+}
+
+// ── Copiar texto descifrado ───────────────────────────────────────────────────
+
+async function copyDecryptedText() {
+    const text = document.getElementById('decrypted-text-output').value;
+    try {
+        await navigator.clipboard.writeText(text);
+        alert('Texto copiado al portapapeles.');
+    } catch {
+        document.getElementById('decrypted-text-output').select();
+    }
+}
+
+// ── Arranque: obtener y quemar inmediatamente ─────────────────────────────────
+fetchAndBurn();
+</script>
+{% endblock %}

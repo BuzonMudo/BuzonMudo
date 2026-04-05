@@ -1,0 +1,436 @@
+{% extends "base.html" %}
+{% block title %}Subir — {{ site_name }}{% endblock %}
+
+{% block content %}
+<div class="main-container">
+
+    <!-- ── Explicación de la tecnología ── -->
+    <div style="margin-bottom: 2rem;">
+        <h1 style="font-size: 1.6rem; margin-bottom: 0.4rem;">
+            <span class="text-accent font-mono">></span> {{ site_name }}
+        </h1>
+        <p style="color: var(--text-secondary); margin-bottom: 1.5rem;">
+            Intercambio de archivos de conocimiento cero.
+            Tu mensaje se cifra en tu navegador antes de salir de tu dispositivo.
+        </p>
+
+        <div class="info-grid">
+            <div class="info-item">
+                <div class="label">Cifrado</div>
+                <div class="value">AES-256-GCM · cliente</div>
+            </div>
+            <div class="info-item">
+                <div class="label">Servidor ve</div>
+                <div class="value">datos ilegibles</div>
+            </div>
+            <div class="info-item">
+                <div class="label">Se destruye</div>
+                <div class="value">al ser leído o en 72 h</div>
+            </div>
+            <div class="info-item">
+                <div class="label">Clave</div>
+                <div class="value">nunca toca el servidor</div>
+            </div>
+        </div>
+
+        <div class="alert-info">
+            <strong>¿Cómo funciona?</strong><br>
+            Tu navegador genera una clave AES-256 aleatoria, cifra el contenido
+            localmente y envía solo los datos cifrados. El servidor almacena
+            "basura digital" que no puede leer. Tú compartes el link
+            <em>y la clave</em> con el receptor por separado (ej: link por email, clave por SMS).
+        </div>
+    </div>
+
+    <!-- ── Formulario de subida ── -->
+    <div class="card-dark" id="form-section">
+        <h2 style="font-size: 1.1rem; margin-bottom: 1.25rem; color: var(--text-secondary);">
+            NUEVO DROP
+        </h2>
+
+        <form id="upload-form" novalidate>
+
+            <!-- Texto -->
+            <div class="mb-3">
+                <label class="form-label" for="plain-text">Mensaje (opcional)</label>
+                <textarea
+                    class="form-control"
+                    id="plain-text"
+                    rows="5"
+                    maxlength="500000"
+                    placeholder="Escribe aquí el mensaje secreto..."></textarea>
+            </div>
+
+            <!-- Archivo -->
+            <div class="mb-3">
+                <label class="form-label" for="plain-file">
+                    Archivo adjunto — PDF o imagen (opcional, máx 3 MB)
+                </label>
+                <input
+                    class="form-control"
+                    type="file"
+                    id="plain-file"
+                    accept=".pdf,.jpg,.jpeg,.png,.webp,.gif">
+                <div style="font-size: 0.78rem; color: var(--text-muted); margin-top: 0.3rem;">
+                    El archivo se cifra en tu navegador antes de enviarse.
+                </div>
+            </div>
+
+            <!-- Aceptación de T&C obligatoria antes de cifrar y enviar -->
+            <div class="tc-check-wrapper">
+                <div class="form-check d-flex align-items-start gap-2">
+                    <input class="form-check-input" type="checkbox" id="tc-accept-upload">
+                    <label class="form-check-label" for="tc-accept-upload">
+                        He leído y acepto los
+                        <a href="#" data-bs-toggle="modal" data-bs-target="#tcModal">
+                            Términos y Condiciones
+                        </a>
+                    </label>
+                </div>
+            </div>
+
+            <div id="upload-status" class="status-text mb-3"></div>
+
+            <button type="submit" class="btn-accent" id="submit-btn">
+                Cifrar y enviar
+            </button>
+        </form>
+    </div>
+
+    <!-- ── Sección de resultado (oculta hasta que se sube) ── -->
+    <div class="card-dark result-section" id="result-section">
+
+        <div style="display: flex; align-items: center; gap: 0.75rem; margin-bottom: 1.25rem;">
+            <span class="text-accent font-mono" style="font-size: 1.2rem;">✓</span>
+            <h2 style="font-size: 1.1rem; margin: 0; color: var(--text-secondary);">
+                DROP CREADO — GUARDA ESTO AHORA
+            </h2>
+        </div>
+
+        <!-- Advertencia de tiempo -->
+        <div class="alert-dark mb-4">
+            <strong>ATENCIÓN:</strong> Esta página se recargará automáticamente en
+            <span id="timer-display">05:00</span>
+            y toda la información de abajo desaparecerá de tu pantalla.
+            El servidor <strong>nunca</strong> almacena la clave — si la pierdes, los datos son irrecuperables.
+        </div>
+
+        <!-- Link -->
+        <div class="mb-3">
+            <label class="form-label">Link para el receptor</label>
+            <div class="key-block" id="result-link" title="Click para seleccionar"></div>
+        </div>
+
+        <!-- Clave -->
+        <div class="mb-3">
+            <label class="form-label">Clave de descifrado (AES-256)</label>
+            <div class="key-block" id="result-key" title="Click para seleccionar"></div>
+            <div style="font-size: 0.78rem; color: var(--text-muted); margin-top: 0.4rem;">
+                Comparte el link y la clave por <strong>canales separados</strong>
+                (ej: link por email, clave por SMS o Signal).
+                Esta clave nunca fue enviada al servidor.
+            </div>
+        </div>
+
+        <hr class="divider">
+
+        <!-- Botones de copiar -->
+        <div style="display: flex; gap: 0.75rem; flex-wrap: wrap;">
+            <button class="btn-outline" onclick="copyToClipboard('result-link', this)">
+                Copiar link
+            </button>
+            <button class="btn-outline" onclick="copyToClipboard('result-key', this)">
+                Copiar clave
+            </button>
+        </div>
+    </div>
+
+</div>
+
+<script>
+/*
+ * ══════════════════════════════════════════════════════════════════════════════
+ * Buzon Mudo — JavaScript del cliente
+ * ══════════════════════════════════════════════════════════════════════════════
+ *
+ * FLUJO DE SEGURIDAD (auditable):
+ *
+ *  1. El usuario rellena el formulario y pulsa "Cifrar y enviar".
+ *  2. Este código genera una clave AES-256-GCM dentro del navegador
+ *     usando window.crypto.subtle (Web Crypto API estándar).
+ *  3. El texto y el archivo se cifran LOCALMENTE con esa clave.
+ *  4. Solo los datos cifrados se envían al servidor (POST /upload).
+ *  5. LA CLAVE JAMÁS SE INCLUYE EN LA PETICIÓN AL SERVIDOR.
+ *  6. El servidor responde con un ID opaco.
+ *  7. Mostramos el link (sitio/v/ID) y la clave en pantalla.
+ *  8. Después de 5 minutos, recargamos para borrar la clave de la pantalla.
+ *
+ * Formato del dato cifrado (texto y archivo):
+ *   [ IV (12 bytes) | Ciphertext AES-256-GCM ]
+ *   El IV se antepone al ciphertext y se envía junto con él.
+ *   El receptor extrae los primeros 12 bytes para obtener el IV.
+ *
+ * ══════════════════════════════════════════════════════════════════════════════
+ */
+
+'use strict';
+
+// ── Utilidades de conversión de buffers ──────────────────────────────────────
+
+/**
+ * Convierte un ArrayBuffer a una cadena Base64.
+ * Usamos Uint8Array + String.fromCharCode + btoa para compatibilidad máxima.
+ */
+function bufToBase64(buf) {
+    return btoa(
+        Array.from(new Uint8Array(buf), b => String.fromCharCode(b)).join('')
+    );
+}
+
+/**
+ * Convierte una cadena Base64 a un Uint8Array.
+ */
+function base64ToBuf(b64) {
+    return Uint8Array.from(atob(b64), c => c.charCodeAt(0));
+}
+
+/**
+ * Concatena dos ArrayBuffers (o Uint8Arrays) en uno nuevo.
+ */
+function concatBufs(a, b) {
+    const ua = new Uint8Array(a), ub = new Uint8Array(b);
+    const result = new Uint8Array(ua.length + ub.length);
+    result.set(ua, 0);
+    result.set(ub, ua.length);
+    return result.buffer;
+}
+
+// ── Cifrado ──────────────────────────────────────────────────────────────────
+
+/**
+ * Genera una clave AES-256-GCM nueva en el navegador.
+ *
+ * `extractable: true` es necesario para poder exportarla y mostrarla al usuario.
+ * La clave es generada por el CSPRNG del sistema operativo a través de la Web Crypto API.
+ */
+async function generateKey() {
+    return crypto.subtle.generateKey(
+        { name: 'AES-GCM', length: 256 },
+        true,              // extractable
+        ['encrypt', 'decrypt']
+    );
+}
+
+/**
+ * Cifra un ArrayBuffer con la clave dada.
+ * Retorna: IV (12 bytes) + ciphertext como un ArrayBuffer unificado.
+ *
+ * Usamos un IV nuevo y aleatorio por cada operación de cifrado.
+ * Un IV reutilizado con la misma clave rompería la seguridad de AES-GCM.
+ */
+async function encryptData(key, plainBuffer) {
+    const iv = crypto.getRandomValues(new Uint8Array(12)); // 96 bits, estándar GCM
+    const ciphertext = await crypto.subtle.encrypt(
+        { name: 'AES-GCM', iv },
+        key,
+        plainBuffer
+    );
+    // Anteponemos el IV: [IV | ciphertext]
+    return concatBufs(iv.buffer, ciphertext);
+}
+
+/**
+ * Lee un File como ArrayBuffer (wrapper de Promise sobre FileReader).
+ */
+function readFileAsBuffer(file) {
+    return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload  = e => resolve(e.target.result);
+        reader.onerror = () => reject(new Error('No se pudo leer el archivo.'));
+        reader.readAsArrayBuffer(file);
+    });
+}
+
+// ── Temporizador ─────────────────────────────────────────────────────────────
+
+let timerInterval = null;
+
+/**
+ * Inicia el contador regresivo de 5 minutos.
+ * Al llegar a cero, recarga la página para borrar la clave de pantalla.
+ */
+function startCountdown(seconds = 300) {
+    const display = document.getElementById('timer-display');
+    let remaining = seconds;
+
+    timerInterval = setInterval(() => {
+        remaining--;
+        const m = String(Math.floor(remaining / 60)).padStart(2, '0');
+        const s = String(remaining % 60).padStart(2, '0');
+        display.textContent = `${m}:${s}`;
+
+        // Alerta visual en el último minuto
+        if (remaining <= 60) display.classList.add('danger');
+
+        if (remaining <= 0) {
+            clearInterval(timerInterval);
+            window.location.reload(); // Borra clave de memoria y pantalla
+        }
+    }, 1000);
+}
+
+// ── Utilidades de UI ─────────────────────────────────────────────────────────
+
+function setStatus(msg, type = '') {
+    const el = document.getElementById('upload-status');
+    el.textContent = msg;
+    el.className = 'status-text mb-3' + (type ? ' ' + type : '');
+}
+
+function setLoading(loading) {
+    const btn = document.getElementById('submit-btn');
+    btn.disabled = loading;
+    btn.textContent = loading ? 'Cifrando y enviando...' : 'Cifrar y enviar';
+}
+
+// ── Handler principal ─────────────────────────────────────────────────────────
+
+document.getElementById('upload-form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+
+    const textEl = document.getElementById('plain-text');
+    const fileEl = document.getElementById('plain-file');
+
+    const plainText = textEl.value.trim();
+    const plainFile = fileEl.files[0] || null;
+
+    // Validación: T&C obligatorio
+    if (!document.getElementById('tc-accept-upload').checked) {
+        setStatus('Debes aceptar los Términos y Condiciones para continuar.', 'error');
+        return;
+    }
+
+    // Validación básica de contenido
+    if (!plainText && !plainFile) {
+        setStatus('Agrega un mensaje o un archivo antes de continuar.', 'error');
+        return;
+    }
+
+    setLoading(true);
+    setStatus('Generando clave AES-256 en tu navegador...');
+
+    try {
+        // ── Paso 1: Generar clave AES-256-GCM ────────────────────────────────
+        // La clave se crea dentro del navegador. Nunca sale al servidor.
+        const cryptoKey = await generateKey();
+
+        // Exportar la clave como raw bytes para mostrársela al usuario
+        const rawKeyBuf = await crypto.subtle.exportKey('raw', cryptoKey);
+        const keyBase64 = bufToBase64(rawKeyBuf); // 44 chars base64 = 256 bits
+
+        // ── Paso 2: Construir el envelope de metadatos y cifrarlo ────────────
+        //
+        // TÉCNICA DE OFUSCACIÓN DE METADATOS (Zero-Knowledge):
+        //
+        //   El servidor nunca debe conocer el tipo ni el nombre del archivo adjunto.
+        //   Para ocultárselos, los empaquetamos DENTRO del bloque de texto cifrado,
+        //   en forma de objeto JSON, antes de cifrar.
+        //
+        //   El servidor solo verá basura cifrada — no sabrá si hay PDF, imagen, etc.
+        //   El receptor descifra el JSON y extrae el nombre/MIME para reconstruir
+        //   el archivo con su tipo correcto (crucial para móviles).
+        //
+        //   Estructura del envelope:
+        //   {
+        //     "mensaje":        string  — el texto escrito por el usuario (puede ser "")
+        //     "nombre_archivo": string|null — nombre original del archivo (ej: "doc.pdf")
+        //     "tipo_mime":      string|null — MIME type (ej: "application/pdf")
+        //   }
+        //
+        //   Si no hay archivo adjunto, nombre_archivo y tipo_mime son null.
+        //   Si no hay mensaje, mensaje es "".
+        //   Siempre se cifra y envía el envelope completo.
+
+        setStatus('Cifrando metadatos y mensaje...');
+
+        const envelope = {
+            mensaje:        plainText,
+            nombre_archivo: plainFile ? plainFile.name  : null,
+            tipo_mime:      plainFile ? (plainFile.type || 'application/octet-stream') : null,
+        };
+
+        // Serializar a JSON → codificar a bytes → cifrar con AES-256-GCM
+        const envelopeBuf    = new TextEncoder().encode(JSON.stringify(envelope));
+        const encEnvelopeBuf = await encryptData(cryptoKey, envelopeBuf);
+        const encryptedTextB64 = bufToBase64(encEnvelopeBuf);
+
+        // ── Paso 3: Cifrar el archivo binario de forma independiente ──────────
+        //
+        //   El binario viaja separado del envelope de metadatos.
+        //   Así el servidor puede almacenar el binario en BYTEA sin necesidad
+        //   de conocer su formato — sigue siendo basura digital para él.
+        let encryptedFileBlob = null;
+        if (plainFile) {
+            setStatus('Cifrando archivo...');
+            const fileBuf  = await readFileAsBuffer(plainFile);
+            const encBuf   = await encryptData(cryptoKey, fileBuf);
+            // Enviamos como Blob binario para no saturar la RAM con base64
+            encryptedFileBlob = new Blob([encBuf], { type: 'application/octet-stream' });
+        }
+
+        // ── Paso 4: Enviar al servidor ────────────────────────────────────────
+        // El servidor recibe únicamente datos cifrados ilegibles.
+        // La clave y los metadatos del archivo NO son visibles para el servidor.
+        setStatus('Enviando datos cifrados al servidor...');
+
+        const formData = new FormData();
+        formData.append('encrypted_text', encryptedTextB64);          // siempre presente
+        if (encryptedFileBlob) formData.append('encrypted_file', encryptedFileBlob, 'file.enc');
+
+        const response = await fetch('/upload', { method: 'POST', body: formData });
+        const data = await response.json();
+
+        if (!response.ok) {
+            throw new Error(data.error || `Error ${response.status}`);
+        }
+
+        // ── Paso 5: Mostrar resultado ──────────────────────────────────────────
+        const dropLink = `${window.location.origin}/v/${data.id}`;
+
+        document.getElementById('result-link').textContent = dropLink;
+        document.getElementById('result-key').textContent  = keyBase64;
+
+        document.getElementById('form-section').style.display   = 'none';
+        document.getElementById('result-section').classList.add('visible');
+
+        // Iniciar el temporizador de 5 minutos
+        startCountdown(300);
+
+        setStatus('');
+
+    } catch (err) {
+        setStatus(`Error: ${err.message}`, 'error');
+        setLoading(false);
+    }
+});
+
+// ── Copiar al portapapeles ────────────────────────────────────────────────────
+
+async function copyToClipboard(elementId, btn) {
+    const text = document.getElementById(elementId).textContent.trim();
+    try {
+        await navigator.clipboard.writeText(text);
+        const original = btn.textContent;
+        btn.textContent = '¡Copiado!';
+        setTimeout(() => { btn.textContent = original; }, 2000);
+    } catch {
+        // Fallback: selección manual
+        const el = document.getElementById(elementId);
+        const range = document.createRange();
+        range.selectNodeContents(el);
+        window.getSelection().removeAllRanges();
+        window.getSelection().addRange(range);
+    }
+}
+</script>
+{% endblock %}
