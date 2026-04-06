@@ -64,15 +64,17 @@
             <!-- Archivo -->
             <div class="mb-3">
                 <label class="form-label" for="plain-file">
-                    Archivo adjunto — PDF o imagen (opcional, máx 3 MB)
+                    Archivo adjunto (opcional)
                 </label>
                 <input
                     class="form-control"
                     type="file"
-                    id="plain-file"
-                    accept=".pdf,.jpg,.jpeg,.png,.webp,.gif">
+                    id="plain-file">
                 <div style="font-size: 0.78rem; color: var(--text-muted); margin-top: 0.3rem;">
-                    El archivo se cifra en tu navegador antes de enviarse.
+                    Se acepta cualquier tipo de archivo. El peso del texto y del archivo
+                    <strong>se suman</strong> — límite total orientativo: <strong>5 MB</strong>.<br>
+                    El cifrado ocurre en tu navegador (Web Crypto API); en navegadores
+                    desactualizados o con formatos de archivo poco comunes podría fallar.
                 </div>
             </div>
 
@@ -150,7 +152,7 @@
 <script>
 /*
  * ══════════════════════════════════════════════════════════════════════════════
- * Buzon Mudo — JavaScript del cliente
+ * Buzon Mudo — JavaScript del cliente (index.html)
  * ══════════════════════════════════════════════════════════════════════════════
  *
  * FLUJO DE SEGURIDAD (auditable):
@@ -387,25 +389,28 @@ document.getElementById('upload-form').addEventListener('submit', async (e) => {
         formData.append('encrypted_text', encryptedTextB64);          // siempre presente
         if (encryptedFileBlob) formData.append('encrypted_file', encryptedFileBlob, 'file.enc');
 
-        const response = await fetch('/upload', { method: 'POST', body: formData });
-        
-        // ── Paso 4.5: Validar la respuesta del servidor antes de leer el JSON ──
-        
-        // Verificar si Nginx bloqueó la subida por peso (413 Payload Too Large)
+        // ── Paso 4.5: Manejar errores antes de leer el JSON ──────────────────
+        // Nginx puede cerrar la conexión (sin respuesta HTTP) si el archivo supera
+        // client_max_body_size, lo que hace que fetch() lance un TypeError.
+        // También puede devolver 413 con HTML, rompiendo response.json().
+        let response;
+        try {
+            response = await fetch('/upload', { method: 'POST', body: formData });
+        } catch {
+            throw new Error('El archivo es demasiado pesado o hubo un error de red.');
+        }
+
         if (response.status === 413) {
-            throw new Error("El archivo es demasiado pesado. El servidor lo rechazó.");
+            throw new Error('El archivo es demasiado pesado. El servidor lo rechazó (límite: 10 MB).');
         }
 
         let data;
         try {
-            // Intentamos parsear el JSON
             data = await response.json();
-        } catch (e) {
-            // Si Nginx o Flask devuelven HTML u otro error no anticipado
-            throw new Error("Error de comunicación con el servidor (Respuesta no válida).");
+        } catch {
+            throw new Error('Respuesta inesperada del servidor. El archivo puede ser demasiado pesado.');
         }
 
-        // Manejar errores controlados que vengan desde Flask
         if (!response.ok) {
             throw new Error(data.error || `Error ${response.status}`);
         }

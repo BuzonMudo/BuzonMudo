@@ -44,7 +44,7 @@ app = Flask(__name__)
 # ─── Límite global de tamaño de petición ──────────────────────────────────────
 # Flask rechaza automáticamente con 413 cualquier petición que supere este límite.
 # Esto previene ataques de agotamiento de memoria (DoS por upload masivo).
-app.config['MAX_CONTENT_LENGTH'] =10 * 1024 * 1024  # 5 MB
+app.config['MAX_CONTENT_LENGTH'] =7 * 1024 * 1024  # 7 MB (contenido real ~5 MB + un porcentaje de inflación base64)  
 
 
 # ─── Configuración (viene del archivo .env, nunca del código) ─────────────────
@@ -184,13 +184,13 @@ def upload():
 
         # Límite secundario sobre el texto (el límite global de Flask ya actúa,
         # pero esto asegura que el texto no consuma todo el espacio disponible)
-        if len(encrypted_text.encode('utf-8')) > 3 * 1024 * 1024:  # 3 MB en base64
+        if len(encrypted_text.encode('utf-8')) > 5 * 1024 * 1024:  # 5 MB en base64 
             return jsonify({'error': 'Texto demasiado grande.'}), 413
 
         file_bytes = None
         if encrypted_file_obj:
             file_bytes = encrypted_file_obj.read()
-            if len(file_bytes) > 4 * 1024 * 1024:  # 4 MB binario
+            if len(file_bytes) > 7 * 1024 * 1024:  # 7 MB binario
                 return jsonify({'error': 'Archivo demasiado grande.'}), 413
 
         # ── Generar ID ────────────────────────────────────────────────────────
