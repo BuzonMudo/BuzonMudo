@@ -401,7 +401,7 @@ document.getElementById('upload-form').addEventListener('submit', async (e) => {
         }
 
         if (response.status === 413) {
-            throw new Error('El archivo es demasiado pesado. El servidor lo rechazó (límite: 10 MB).');
+            throw new Error('El archivo es demasiado pesado. El servidor lo rechazó (límite: 5 MB).');
         }
 
         let data;
